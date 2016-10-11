@@ -104,13 +104,13 @@ end
 
 Event.register(defines.events.on_entity_died,give_player_items)
 
-local function give_starting_inventory(event)
+local function give_respawn_inventory(event)
     local player = game.players[event.player_index]
     give_starting_inventory(player)
     give_equipment(player)
 end
 
-Event.register(defines.events.on_player_respawned, give_starting_inventory)
+Event.register(defines.events.on_player_respawned, give_respawn_inventory)
 
 global.timer_value = 0
 global.timer_wait = 610
