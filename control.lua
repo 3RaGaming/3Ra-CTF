@@ -19,7 +19,7 @@ blue_color = {b = 0.9, r= 0.1, g = 0.1, a = 0.8}
 d = 32*3
 bd = d*3
 
-script.on_event(defines.events.on_player_created, function(event)
+local function intro_message(event)
 	if global.red_count == nil then
 		global.red_count = 0
 	end
@@ -37,35 +37,30 @@ script.on_event(defines.events.on_player_created, function(event)
 	else 
 		player.print({"msg-intro3"})
 	end
-end)
+end
+
+Event.register(defines.events.on_player_created,intro_message)
  
-script.on_event(defines.events.on_player_joined_game, function(event)
+local function flashlight(event)
 	local player = game.players[event.player_index]
     if player.gui.left.flashlight == nil then
         local frame = player.gui.left.add{name = "flashlight", type = "button", direction = "horizontal", caption = "flashlight"}
     end
-	
-	if player.admin == true then
-        if player.gui.left.spectate == nil then
-            local adminframe = player.gui.left.add{name = "spectate", type = "button", direction = "horizontal", caption = "spectate"}
-        end
-		if game.tick > 60 then
-			for k, p in pairs (game.players) do
-				p.print("All Hail Admin "..player.name)
-			end
-		end
-	end
 	show_update_score()
 	update_count()
- end)
- 
-script.on_event(defines.events.on_player_left_game, function(event)
-  update_count()
-end)
+end
+
+Event.register(defines.events.on_player_joined_game, flashlight)
+
+local function player_left_update(event)
+	update_count()
+end
+
+Event.register(defines.events.on_player_left_game, player_left_update)
 
 script.on_init(function ()
 	load_global_tables()
-  	make_forces()  
+  	make_forces()
 	make_lobby()
 	spawn_loot()
 	set_spawns()
@@ -74,44 +69,48 @@ script.on_init(function ()
 	global.flags_items = {}
 end)
 
-script.on_event(defines.events.on_entity_died, function(event)
- local entity = event.entity
-	if entity.type == "player" then
-	
-	local pos = entity.surface.find_non_colliding_position(
-		"steel-chest", entity.position, 8, 1)
-		if not pos then return end
-    
-		local grave = entity.surface.create_entity{
-		name="steel-chest", position=pos, force="neutral"}
-		if protective_mode then
-			grave.destructible = false
-		end
-			local grave_inv = grave.get_inventory(defines.inventory.chest)
-			local count = 0
-		for i, id in ipairs{
-			defines.inventory.player_ammo,
-			defines.inventory.player_quickbar,
-			defines.inventory.player_main,
-			defines.inventory.player_item_active,
-			defines.inventory.player_trash} do
-			local inv = entity.get_inventory(id)
-			for j = 1, #inv do
-			if inv[j].valid_for_read then
-			count = count + 1
-			if count > #grave_inv then return end
-			grave_inv[count].set_stack(inv[j])
-			end
-			end
-		end	
-	end	
-end)
+local function give_player_items(event)
+    local entity = event.entity
+    if entity.type == "player" then
 
-script.on_event(defines.events.on_player_respawned, function(event)
-  local player = game.players[event.player_index]
-  give_starting_inventory(player)
-  give_equipment(player)
-end)
+        local pos = entity.surface.find_non_colliding_position(
+            "steel-chest", entity.position, 8, 1)
+        if not pos then return end
+
+        local grave = entity.surface.create_entity{
+            name="steel-chest", position=pos, force="neutral"}
+        if protective_mode then
+            grave.destructible = false
+        end
+        local grave_inv = grave.get_inventory(defines.inventory.chest)
+        local count = 0
+        for i, id in ipairs{
+            defines.inventory.player_ammo,
+            defines.inventory.player_quickbar,
+            defines.inventory.player_main,
+            defines.inventory.player_item_active,
+            defines.inventory.player_trash} do
+            local inv = entity.get_inventory(id)
+            for j = 1, #inv do
+                if inv[j].valid_for_read then
+                    count = count + 1
+                    if count > #grave_inv then return end
+                    grave_inv[count].set_stack(inv[j])
+                end
+            end
+        end
+    end
+end
+
+Event.register(defines.events.on_entity_died,give_player_items)
+
+local function give_starting_inventory(event)
+    local player = game.players[event.player_index]
+    give_starting_inventory(player)
+    give_equipment(player)
+end
+
+Event.register(defines.events.on_player_respawned, give_starting_inventory)
 
 global.timer_value = 0
 global.timer_wait = 610
@@ -120,70 +119,74 @@ global.loot_timer_value = 0
 global.loot_timer_wait = 122
 global.loot_timer_display = 1
 
-script.on_event(defines.events.on_tick, function(event)
-	local current_time = game.tick / 60 - global.timer_value
-	local current_loot_time = game.tick / 60 - global.loot_timer_value
-	local message_display = "test"
-	local loot_message_display = "test"
-	show_health()
-	
-	if current_time >= global.timer_wait then
-		if global.timer_display == 1 then
-			message_display = {"msg-announce1"}
-			global.timer_display = 2
-		else
-			message_display = {"msg-announce2"}
-			global.timer_display = 1
-		end
-		for k, player in pairs(game.players) do
-			player.print(message_display)
-		end
-		global.timer_value = game.tick / 60
-	end
-	if current_loot_time >= global.loot_timer_wait then
-		if global.timer_display == 1 then
-			loot_message_display = {"msg-announce3"}
-			global.loot_timer_display = 2
-			spawn_loot()
-		else
-			loot_message_display = {"msg-announce3"}
-			global.loot_timer_display = 1
-			spawn_loot()
-		end
-		for k, player in pairs(game.players) do
-			player.print(loot_message_display)
-		end
-		global.loot_timer_value = game.tick / 60
-	end
-		-- PLAYER TRANSFER
-	for _, player in pairs(game.players) do
-		if player.connected and player.character and player.vehicle == nil then
-			teleport_into(player)
-			teleport_out(player)
-		end
-	end
-	check_chest()
-end)
 
-script.on_event(defines.events.on_gui_click, function(event)
-	local s = game.surfaces.nauvis
-	local player = game.players[event.player_index]
-	local force = player.force
+local function tick_update(event)
+    local current_time = game.tick / 60 - global.timer_value
+    local current_loot_time = game.tick / 60 - global.loot_timer_value
+    local message_display = "test"
+    local loot_message_display = "test"
+    show_health()
+
+    if current_time >= global.timer_wait then
+        if global.timer_display == 1 then
+            message_display = {"msg-announce1"}
+            global.timer_display = 2
+        else
+            message_display = {"msg-announce2"}
+            global.timer_display = 1
+        end
+        for k, player in pairs(game.players) do
+            player.print(message_display)
+        end
+        global.timer_value = game.tick / 60
+    end
+    if current_loot_time >= global.loot_timer_wait then
+        if global.timer_display == 1 then
+            loot_message_display = {"msg-announce3"}
+            global.loot_timer_display = 2
+            spawn_loot()
+        else
+            loot_message_display = {"msg-announce3"}
+            global.loot_timer_display = 1
+            spawn_loot()
+        end
+        for k, player in pairs(game.players) do
+            player.print(loot_message_display)
+        end
+        global.loot_timer_value = game.tick / 60
+    end
+    -- PLAYER TRANSFER
+    for _, player in pairs(game.players) do
+        if player.connected and player.character and player.vehicle == nil then
+            teleport_into(player)
+            teleport_out(player)
+        end
+    end
+    check_chest()
+end
+
+Event.register(defines.events.on_tick,tick_update)
+
+
+local function click_button(event)
+    local s = game.surfaces.nauvis
+    local player = game.players[event.player_index]
+    local force = player.force
     local index = event.player_index
     local element = event.element.name
-		
-	if player.gui.top.flashlight == nil then
+
+    if player.gui.top.flashlight == nil then
         if element ~= nil then
             if element == "flashlight" then
                 if player.character == nil then return end
                 if global.player_flashlight_state == nil then
                     global.player_flashlight_state = {}
                 end
-                
+
                 if global.player_flashlight_state[event.player_index] == nil then
                     global.player_flashlight_state[event.player_index] = true
                 end
-    
+
                 if global.player_flashlight_state[event.player_index] then
                     global.player_flashlight_state[event.player_index] = false
                     player.character.disable_flashlight()
@@ -193,75 +196,64 @@ script.on_event(defines.events.on_gui_click, function(event)
                 end
             end
         end
-	end	
-	if player.gui.left.choose_team ~= nil then
-		if (event.element.name == "red") then
-		 if player.character == nil then
-                if player.connected then
-					if global.red_count > global.blue_count then player.print("Too many Players on that team") return end
-                    local character = player.surface.create_entity{name = "player", position = player.surface.find_non_colliding_position("player", player.force.get_spawn_position(player.surface), 10, 2), force = force}
-                    player.set_controller{type = defines.controllers.character, character = character}
-                    end
-            end
-			global.red_count_total = global.red_count_total + 1
-			player.teleport(game.forces["Red"].get_spawn_position(s), game.surfaces.nauvis)
-			player.color = red_color
-			player.force = game.forces["Red"]
-			player.gui.left.choose_team.destroy()
-			give_starting_inventory(player)
-			give_equipment(player)
-			update_count()
-			player.print("Capture the Blue Flag")      
-			for k, p in pairs (game.players) do
-				p.print(player.name.." has joined team Red")
-			end
-		end
-	end
-	if player.gui.left.choose_team ~= nil then
-		if (event.element.name == "blue") then
+    end
+    if player.gui.left.choose_team ~= nil then
+        if (event.element.name == "red") then
             if player.character == nil then
                 if player.connected then
-					if global.blue_count > global.red_count then player.print("Too many Players on that team") return end
+                    if global.red_count > global.blue_count then player.print("Too many Players on that team") return end
                     local character = player.surface.create_entity{name = "player", position = player.surface.find_non_colliding_position("player", player.force.get_spawn_position(player.surface), 10, 2), force = force}
                     player.set_controller{type = defines.controllers.character, character = character}
-                    end
+                end
             end
-			global.blue_count_total = global.blue_count_total + 1
-			player.teleport(game.forces["Blue"].get_spawn_position(s), game.surfaces.nauvis)-- needs updating
-			player.color = blue_color
-			player.force = game.forces["Blue"]
-			player.gui.left.choose_team.destroy()
-			give_starting_inventory(player)
-			give_equipment(player)
-			update_count()
-			player.print("Capture the Red Flag")
-			for k, p in pairs (game.players) do
-				p.print(player.name.." has joined team Blue")
-			end
-		end
-	end
-    
-	if player.gui.left.choose_team ~= nil then
-		if (event.element.name == "spectator") then
-			force_spectators(index)
-		end
-		--destroy.character
-		--make controller ghost
-	end
-    
-    if player.gui.left.spectate ~= nil then
-        if element ~= nil then
-            if element == "spectate" then
-                force_spectators(index)
+            global.red_count_total = global.red_count_total + 1
+            player.teleport(game.forces["Red"].get_spawn_position(s), game.surfaces.nauvis)
+            player.color = red_color
+            player.force = game.forces["Red"]
+            player.gui.left.choose_team.destroy()
+            give_starting_inventory(player)
+            give_equipment(player)
+            update_count()
+            player.print("Capture the Blue Flag")
+            for k, p in pairs (game.players) do
+                p.print(player.name.." has joined team Red")
             end
         end
     end
-end)
+    if player.gui.left.choose_team ~= nil then
+        if (event.element.name == "blue") then
+            if player.character == nil then
+                if player.connected then
+                    if global.blue_count > global.red_count then player.print("Too many Players on that team") return end
+                    local character = player.surface.create_entity{name = "player", position = player.surface.find_non_colliding_position("player", player.force.get_spawn_position(player.surface), 10, 2), force = force}
+                    player.set_controller{type = defines.controllers.character, character = character}
+                end
+            end
+            global.blue_count_total = global.blue_count_total + 1
+            player.teleport(game.forces["Blue"].get_spawn_position(s), game.surfaces.nauvis)-- needs updating
+            player.color = blue_color
+            player.force = game.forces["Blue"]
+            player.gui.left.choose_team.destroy()
+            give_starting_inventory(player)
+            give_equipment(player)
+            update_count()
+            player.print("Capture the Red Flag")
+            for k, p in pairs (game.players) do
+                p.print(player.name.." has joined team Blue")
+            end
+        end
+    end
 
-	
-script.on_event(defines.events.on_player_died, function(event)
+    if player.gui.left.choose_team ~= nil then
+        if (event.element.name == "spectator") then
+            force_spectators(index)
+        end
+        --destroy.character
+        --make controller ghost
+    end
+end
+Event.register(defines.events.on_gui_click, click_button)
 
-end)
 
 function update_count()
   local red_total = global.red_count_total
@@ -322,37 +314,6 @@ function check_loc(player)
     local x = p.position.x
     local y = p.position.y
     p.print({"", "surface.index = ", s, " (", x, ", ", y, ")"})
-end
-
-function force_spectators(index)
-    local player = game.players[index]
-    if global.player_spectator_state == nil then global.player_spectator_state = {} end
-    if global.player_spectator_character == nil then global.player_spectator_character = {}  end
-    if global.player_spectator_force == nil then global.player_spectator_force = {} end
-    if global.player_spectator_state[index] then
-        --remove spectator mode
-        if player.character == nil and global.player_spectator_character[index] ~= nil then
-            local pos = player.position
-			player.set_controller{type=defines.controllers.character, character=global.player_spectator_character[index]}
-            player.teleport(pos)
-			player.force = game.forces[global.player_spectator_force[index].name]
-		end
-        global.player_spectator_state[index] = false
-        player.print("Summoning your character")
-    else
-        --put player in spectator mode
-        if player.surface.name == "Lobby" then
-            player.teleport(game.forces["Spectators"].get_spawn_position(game.surfaces.nauvis), game.surfaces.nauvis)
-        end
-        if player.character then
-            global.player_spectator_character[index] = player.character
-            global.player_spectator_force[index] = player.force
-    		player.set_controller{type = defines.controllers.god}
-        end
-        player.force = game.forces["Spectators"]
-        global.player_spectator_state[index] = true
-		player.print("You are now a spectator")
-    end
 end
 
 function make_lobby()
@@ -432,25 +393,25 @@ function format_time(ticks)
 end
 
 function spawn_flags()
-if not global.chests then global.chests = {} end
-local surface = game.surfaces["nauvis"]
-	global.flags_items = {}
-	global.flags_items.name = "processing-unit" and "advanced-circuit"
-		for k, object in pairs (surface.find_entities{{640,-447},{641,-446}}) do object.destroy() end
-		global.chest_blue = surface.create_entity{name = "steel-chest", position = {640,-447}, force = "neutral"}
-		global.chest_blue.minable = false
-		global.chest_blue.destructible = false
-		global.chest_blue.insert{name = "processing-unit", count = 1}
-		for k, object in pairs (surface.find_entities{{640,-447},{641,-446}}) do
-		table.insert(global.chests, index) end
-		
-		for k, object in pairs (surface.find_entities{{190,430},{191,431}}) do object.destroy() end
-		global.chest_red = surface.create_entity{name = "steel-chest", position = {190,430}, force = "neutral"}
-		global.chest_red.minable = false
-		global.chest_red.destructible = false
-		global.chest_red.insert{name = "advanced-circuit", count = 1}
-		for k, object in pairs (surface.find_entities{{190,430},{191,431}}) do
-		table.insert(global.chests, index) end
+    if not global.chests then global.chests = {} end
+    local surface = game.surfaces["nauvis"]
+    global.flags_items = {}
+    global.flags_items.name = "processing-unit" and "advanced-circuit"
+    for k, object in pairs (surface.find_entities{{640,-447},{641,-446}}) do object.destroy() end
+    global.chest_blue = surface.create_entity{name = "steel-chest", position = {640,-447}, force = "neutral"}
+    global.chest_blue.minable = false
+    global.chest_blue.destructible = false
+    global.chest_blue.insert{name = "processing-unit", count = 1}
+    for k, object in pairs (surface.find_entities{{640,-447},{641,-446}}) do
+    table.insert(global.chests, index) end
+
+    for k, object in pairs (surface.find_entities{{190,430},{191,431}}) do object.destroy() end
+    global.chest_red = surface.create_entity{name = "steel-chest", position = {190,430}, force = "neutral"}
+    global.chest_red.minable = false
+    global.chest_red.destructible = false
+    global.chest_red.insert{name = "advanced-circuit", count = 1}
+    for k, object in pairs (surface.find_entities{{190,430},{191,431}}) do
+    table.insert(global.chests, index) end
 end
 
 function check_chest()
