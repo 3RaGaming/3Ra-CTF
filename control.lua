@@ -1,13 +1,6 @@
 --capture the flag, a Halo inspired concept (think sidewinder)
 --A 3Ra Gaming creation
-if not scenario then scenario = {} end
-if not scenario.config then scenario.config = {} end
 --Starting Variables
-require "config"
-require "locale/utils/event"
-require "locale/utils/admin"
-require "locale/utils/undecorator"
-
 global.red_count_total = 0
 global.blue_count_total = 0
 
