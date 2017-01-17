@@ -62,7 +62,6 @@ script.on_init(function ()
 	load_global_tables()
   	make_forces()
 	make_lobby()
-	spawn_loot()
 	set_spawns()
 	spawn_flags()
 	global.chests = {}
@@ -119,51 +118,35 @@ global.loot_timer_value = 0
 global.loot_timer_wait = 122
 global.loot_timer_display = 1
 
-
-local function tick_update(event)
-    local current_time = game.tick / 60 - global.timer_value
-    local current_loot_time = game.tick / 60 - global.loot_timer_value
-    local message_display = "test"
-    local loot_message_display = "test"
-    show_health()
-
-    if current_time >= global.timer_wait then
-        if global.timer_display == 1 then
-            message_display = {"msg-announce1"}
-            global.timer_display = 2
-        else
-            message_display = {"msg-announce2"}
-            global.timer_display = 1
-        end
-        for k, player in pairs(game.players) do
-            player.print(message_display)
-        end
-        global.timer_value = game.tick / 60
-    end
-    if current_loot_time >= global.loot_timer_wait then
-        if global.timer_display == 1 then
-            loot_message_display = {"msg-announce3"}
-            global.loot_timer_display = 2
-            spawn_loot()
-        else
-            loot_message_display = {"msg-announce3"}
-            global.loot_timer_display = 1
-            spawn_loot()
-        end
-        for k, player in pairs(game.players) do
-            player.print(loot_message_display)
-        end
-        global.loot_timer_value = game.tick / 60
-    end
-    -- PLAYER TRANSFER
-    for _, player in pairs(game.players) do
-        if player.connected and player.character and player.vehicle == nil then
-            teleport_into(player)
-            teleport_out(player)
-        end
-    end
-    check_chest()
-end
+Event.register(defines.events.on_tick, function(event)
+	--runs every 500ms
+	if(game.tick % 30 == 0) then
+		show_health()
+		check_chest()
+		-- PLAYER TRANSFER
+		for _, player in pairs(game.players) do
+			if player.connected and player.character and player.vehicle == nil then
+				teleport_into(player)
+				teleport_out(player)
+			end
+		end
+	end
+ local current_time = game.tick / 60 - global.timer_value
+	local message_display = "test"
+	if current_time >= global.timer_wait then
+		if global.timer_display == 1 then
+			message_display = {"msg-announce1"}
+			global.timer_display = 2
+		else
+			message_display = {"msg-announce2"}
+			global.timer_display = 1
+		end
+		for k, player in pairs(game.players) do
+			player.print(message_display)
+		end
+		global.timer_value = game.tick / 60
+	end
+end)
 
 Event.register(defines.events.on_tick,tick_update)
 
@@ -449,62 +432,6 @@ function check_chest()
 			end
 		end
 	end	
-end
-
-function spawn_loot()
-	local surface = game.surfaces["nauvis"]
-		for k, object in pairs (surface.find_entities{{627,-447},{628,-446}}) do object.destroy() end
-		global.loot_chest_c = surface.create_entity{name = "steel-chest", position = {627,-447}, force = "neutral"}
-		global.loot_chest_c.minable = false
-		global.loot_chest_c.destructible = false
-		global.loot_chest_c.insert{name = "solid-fuel", count = 50}
-		global.loot_chest_c.insert{name = "car", count = 2}
-		
-		for k, object in pairs (surface.find_entities{{190,420},{191,421}}) do object.destroy() end
-		global.loot_chest_b = surface.create_entity{name = "steel-chest", position = {190,420}, force = "neutral"}
-		global.loot_chest_b.minable = false
-		global.loot_chest_b.destructible = false
-		global.loot_chest_b.insert{name = "solid-fuel", count = 50}
-		global.loot_chest_b.insert{name = "car", count = 2}
-	
-		for k, object in pairs (surface.find_entities{{-29,-339},{-30,-340}}) do object.destroy() end
-		global.loot_chest_l = surface.create_entity{name = "steel-chest", position = {-29,339}, force = "neutral"}
-		global.loot_chest_l.minable = false
-		global.loot_chest_l.destructible = false
-		global.loot_chest_l.insert{name = "cluster-grenade", count = 4}
-	
-		for k, object in pairs (surface.find_entities{{95,-336},{96,-337}}) do object.destroy() end
-		global.loot_chest_r = surface.create_entity{name = "steel-chest", position = {95,-336}, force = "neutral"}
-		global.loot_chest_r.minable = false
-		global.loot_chest_r.destructible = false
-		global.loot_chest_r.insert{name = "explosive-rocket", count = 5}
-		global.loot_chest_r.insert{name = "rocket-launcher", count = 1}
-
-		for k, object in pairs (surface.find_entities{{52, -371},{53, -372}}) do object.destroy() end
-		global.loot_chest_r = surface.create_entity{name = "steel-chest", position = {52, -371}, force = "neutral"}
-		global.loot_chest_r.minable = false
-		global.loot_chest_r.destructible = false
-		global.loot_chest_r.insert{name = "flame-thrower-ammo", count = 5}
-		global.loot_chest_r.insert{name = "flame-thrower", count = 1}
-		
-		for k, object in pairs (surface.find_entities{{88, -302},{89, -303}}) do object.destroy() end
-		global.loot_chest_r = surface.create_entity{name = "steel-chest", position = {88, -302}, force = "neutral"}
-		global.loot_chest_r.minable = false
-		global.loot_chest_r.destructible = false
-		global.loot_chest_r.insert{name = "distractor-capsule", count = 3}
-		
-		for k, object in pairs (surface.find_entities{{-15,-300},{-14,-301}}) do object.destroy() end
-		global.loot_chest_r = surface.create_entity{name = "steel-chest", position = {-15,-1}, force = "neutral"}
-		global.loot_chest_r.minable = false
-		global.loot_chest_r.destructible = false
-		global.loot_chest_r.insert{name = "defender-capsule", count = 5}
-		
-		for k, object in pairs (surface.find_entities{{-16,-390},{-15,-391}}) do object.destroy() end
-		global.loot_chest_r = surface.create_entity{name = "steel-chest", position = {-16,90}, force = "neutral"}
-		global.loot_chest_r.minable = false
-		global.loot_chest_r.destructible = false
-		global.loot_chest_r.insert{name = "car", count = 1}
-		global.loot_chest_r.insert{name = "solid-fuel", count = 50}
 end
 
 function show_health()
